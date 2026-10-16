@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071a2f">
+  <title>Iguatemi Smart Parking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="phone" aria-label="Aplicativo Iguatemi Smart Parking">
+      <header class="app-header">
+        <button class="icon-button" aria-label="Voltar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40"><path d="M8 19.5 20 7l12 12.5v13H8v-13Z"/><path d="M14 32.5v-9h12v9"/></svg>
+        </div>
+        <div class="header-spacer"></div>
+        <button class="icon-button notification-button" aria-label="Notificações">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+          <span></span>
+        </button>
+      </header>
+
+      <div class="app-content">
+        <div class="screen active" id="request-screen" data-screen="request">
+          <div class="eyebrow"><span></span> Reserva antecipada</div>
+          <h1>Chegue sem<br><em>perder tempo.</em></h1>
+          <p class="intro">Escolha seu shopping e a hora prevista. Nós cuidamos do resto.</p>
+
+          <form id="request-form">
+            <label class="field-label" for="shopping">Shopping</label>
+            <div class="select-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              <select id="shopping" required>
+                <option value="Iguatemi São Paulo">Iguatemi São Paulo</option>
+                <option value="Iguatemi Campinas">Iguatemi Campinas</option>
+                <option value="Iguatemi Curitiba">Iguatemi Curitiba</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div>
+                <label class="field-label" for="date">Data</label>
+                <div class="input-wrap">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+                  <input id="date" type="date" required>
+                </div>
+              </div>
+              <div>
+                <label class="field-label" for="time">Horário</label>
+                <div class="input-wrap">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                  <input id="time" type="time" value="18:30" required>
+                </div>
+              </div>
+            </div>
+
+            <button class="primary-button" type="submit">
+              Avançar para Seleção de Vaga
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </form>
+
+          <div class="trust-card">
+            <div class="trust-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>
+            </div>
+            <div><strong>Reserva segura e sem burocracia</strong><span>Seu acesso fica confirmado instantly.</span></div>
+          </div>
+        </div>
+
+        <div class="screen" id="preference-screen" data-screen="preference">
+          <div class="stepper"><span class="done"></span><span class="active"></span><span></span><span></span></div>
+          <div class="eyebrow"><span></span> Escolha como quer estacionar</div>
+          <h2>Qual é a melhor<br><em>opção para você?</em></h2>
+          <p class="intro">Selecione um modo de encontrar a vaga ideal.</p>
+
+          <button class="preference-card map-option" data-action="map">
+            <div class="option-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></svg>
+            </div>
+            <div><strong>Escolher no mapa</strong><span>Visualize a planta e selecione uma vaga</span></div>
+            <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+
+          <button class="preference-card auto-option" data-action="auto">
+            <div class="option-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/><path d="m17 7 2-2M5 19l2-2"/></svg>
+            </div>
+            <div><strong>Indicação automática</strong><span>O sistema escolhe a melhor vaga para você</span></div>
+            <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+
+          <button class="text-button back-button" data-back="request">← Voltar</button>
+        </div>
+
+        <div class="screen" id="map-screen" data-screen="map">
+          <div class="stepper"><span class="done"></span><span class="done"></span><span class="active"></span><span></span></div>
+          <div class="screen-title-row">
+            <div><div class="eyebrow"><span></span> Escolha sua vaga</div><h2>Selecione no mapa</h2></div>
+            <button class="icon-button" data-back="preference" aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          </div>
+          <p class="intro">Toque em uma vaga disponível e confirme.</p>
+
+          <div class="map-card">
+            <div class="map-label"><span>Planta baixa</span><strong>Piso B1</strong></div>
+            <div class="map-grid" role="group" aria-label="Mapa das vagas">
+              <div class="map-entry occupied" data-spot="B1-A01"><span>A01</span></div>
+              <div class="map-entry available" data-spot="B1-A02"><span>A02</span></div>
+              <div class="map-entry available" data-spot="B1-A03"><span>A03</span></div>
+              <div class="map-entry occupied" data-spot="B1-A04"><span>A04</span></div>
+              <div class="map-entry available" data-spot="B1-A05"><span>A05</span></div>
+              <div class="map-entry available" data-spot="B1-A06"><span>A06</span></div>
+              <div class="map-entry occupied" data-spot="B1-A07"><span>A07</span></div>
+              <div class="map-entry available" data-spot="B1-A08"><span>A08</span></div>
+              <div class="map-entry available" data-spot="B1-A09"><span>A09</span></div>
+              <div class="map-entry occupied" data-spot="B1-A10"><span>A10</span></div>
+              <div class="map-entry available" data-spot="B1-A11"><span>A11</span></div>
+              <div class="map-entry available" data-spot="B1-A12"><span>A12</span></div>
+              <div class="map-entry occupied" data-spot="B1-A13"><span>A13</span></div>
+              <div class="map-entry available" data-spot="B1-A14"><span>A14</span></div>
+              <div class="map-entry available" data-spot="B1-A15"><span>A15</span></div>
+              <div class="map-entry occupied" data-spot="B1-A16"><span>A16</span></div>
+            </div>
+            <div class="map-legend"><span><i class="legend-free"></i>Disponível</span><span><i class="legend-occupied"></i>Ocupada</span></div>
+            <div class=" entrance-label">Acesso principal <span>→</span></div>
+          </div>
+
+          <div class="selection-summary" id="selection-summary" hidden>
+            <span>Vaga selecionada</span><strong id="selected-spot">—</strong>
+          </div>
+          <button class="primary-button" id="confirm-map" disabled>Confirmar Vaga Escolhida <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+
+        <div class="screen" id="auto-screen" data-screen="auto">
+          <div class="stepper"><span class="done"></span><span class="done"></span><span></span><span></span></div>
+          <div class="loading-state">
+            <div class="loading-orbit"><span></span><svg viewBox="0 0 64 64"><path d="M32 5 57 19v26L32 59 7 45V19L32 5Z"/><path d="M32 5v54M7 19l50 26M57 19 7 45"/></svg></div>
+            <h2>Calculando a melhor rota</h2>
+            <p>Analisando disponibilidade e distância ao acesso.</p>
+            <div class="loading-bar"><span></span></div>
+          </div>
+          <button class="primary-button auto-result" id="auto-result" hidden>Aceitar e Prosseguir <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+
+        <div class="screen" id="confirmation-screen" data-screen="confirmation">
+          <div class="success-badge">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+          </div>
+          <div class="eyebrow"><span></span> Reserva confirmada</div>
+          <h2>Você está<br><em>pronto para chegar.</em></h2>
+
+          <div class="reservation-card">
+            <div class="reservation-top"><span>Reserva de estacionamento</span><strong id="reservation-status">Ativa</strong></div>
+            <div class="reservation-details">
+              <div><span>Shopping</span><strong id="summary-shopping">Iguatemi São Paulo</strong></div>
+              <div><span>Data e horário</span><strong id="summary-date">—</strong></div>
+              <div><span>Vaga</span><strong id="summary-spot">B1-A12</strong></div>
+              <div><span>Tempo estimado</span><strong>8 min</strong></div>
+            </div>
+            <div class="price-row"><div><span>Valor do valet</span><strong>R$ 18,00</strong></div><div class="saving"><span>Você economiza</span><strong>R$ 12,00</strong></div></div>
+          </div>
+
+          <div class="qr-section">
+            <div class="qr-code" aria-label="Código QR de acesso">
+              <svg viewBox="0 0 120 120" role="img"><rect width="120" height="120" fill="#fff"/><path fill="#071a2f" d="M4 4h32v32H4V4Zm8 8v16h16V12H12Zm24-8h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm16-24h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm8-24h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm16-40h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm8-32h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm16-40h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm8-32h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm16-40h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm8-32h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm16-40h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm8-32h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm16-40h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm8-32h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm16-40h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm8-32h8v8h-8V4Zm0 16h8v8h-8V12Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Zm0 16h8v8h-8v-8Z"/></svg>
+            </div>
+            <div><strong>QRCode de acesso</strong><span>Escaneie na cancela do shopping</span></div>
+          </div>
+
+          <button class="primary-button" id="new-reservation">Nova Reserva <svg viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg></button>
+        </div>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Navegação principal">
+        <button class="active" data-nav="request"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9H3v-9Z"/><path d="M9 20v-6h6v6"/></svg><span>Início</span></button>
+        <button data-nav="map"><svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></svg><span>Mapa</span></button>
+        <button data-nav="confirmation"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Reserva</span></button>
+      </nav>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
