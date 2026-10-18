@@ -1,356 +1,304 @@
-// Projeto: Reserva Antecipada de Vagas Iguatemi | Integrantes: Bárbara Passos, Laura Rocha, Giovanna Taketani, André Cintra, Eduardo okada e Bruno Cesar
+// Iguatemi Smart Parking · protótipo web
+const $ = (s) => document.querySelector(s);
 const screens = [...document.querySelectorAll('.screen')];
 const navButtons = [...document.querySelectorAll('.bottom-nav button')];
-const requestForm = document.querySelector('#request-form');
-const dateInput = document.querySelector('#date');
-const timeInput = document.querySelector('#time');
-const plateInput = document.querySelector('#plate');
-const selectedSpot = document.querySelector('#selected-spot');
-const confirmMapButton = document.querySelector('#confirm-map');
-const selectionSummary = document.querySelector('#selection-summary');
-const autoResult = document.querySelector('#auto-result');
-const autoScreen = document.querySelector('#auto-screen');
-const autoSpotMessage = document.querySelector('#auto-spot-message');
-const arrivalButton = document.querySelector('#simulate-arrival');
-const parkingHours = document.querySelector('#parking-hours');
-const payNowButton = document.querySelector('#pay-now');
-const paymentResult = document.querySelector('#payment-result');
-const paymentPricing = window.ParkingPricing;
+const requestForm = $('#request-form');
+const dateInput = $('#date');
+const timeInput = $('#time');
+const plateInput = $('#plate');
+const formError = $('#form-error');
+const mapGrid = $('#map-grid');
+const selectedSpotEl = $('#selected-spot');
+const selectionSummary = $('#selection-summary');
+const confirmMapButton = $('#confirm-map');
+const autoLoading = $('#auto-loading');
+const autoFound = $('#auto-found');
+const autoNote = $('#auto-note');
+const autoResult = $('#auto-result');
+const backButton = $('#back-btn');
+const srStatus = $('#sr-status');
 
-let currentSpot = null;
-let currentPlate = '';
-let paidPayment = null;
-let selectedMapSpot = null;
-let recommendedSpot = null;
-let activeScreen = 'request';
+const PRICE = { valet: 18, saving: 12 }; // valores ilustrativos do protótipo
+const FLOOR_DATA = {
+  B1: { label: 'Piso B1', spots: Array.from({ length: 16 }, (_, i) => `A${String(i + 1).padStart(2, '0')}`), occupied: new Set(['A01', 'A04', 'A07', 'A10', 'A13', 'A16']) },
+  B2: { label: 'Piso B2', spots: Array.from({ length: 16 }, (_, i) => `A${String(i + 1).padStart(2, '0')}`), occupied: new Set(['A02', 'A05', 'A08', 'A11', 'A14']) },
+  B3: { label: 'Piso B3', spots: Array.from({ length: 16 }, (_, i) => `A${String(i + 1).padStart(2, '0')}`), occupied: new Set(['A03', 'A06', 'A09', 'A12', 'A15']) },
+  B4: { label: 'Piso B4', spots: Array.from({ length: 16 }, (_, i) => `A${String(i + 1).padStart(2, '0')}`), occupied: new Set(['A01', 'A05', 'A10', 'A13', 'A16']) }
+};
+const FLOOR_ORDER = ['B1', 'B2', 'B3', 'B4'];
+const TITLES = { request: 'Reserva antecipada', preference: 'Escolha como estacionar', map: 'Mapa de vagas', auto: 'Indicação automática', confirmation: 'Reserva confirmada' };
+const STORE_KEY = 'iguatemi-smart-parking';
+
+const state = { screen: 'request', history: ['request'], formDone: false, selected: null, reservation: null, reserved: new Set(), plate: '', floor: 'B1' };
 let autoTimer;
 
-function setDateMinimum() {
-  const today = new Date();
-  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
-    .toISOString()
-    .split('T')[0];
-  dateInput.min = localDate;
-  if (!dateInput.value) dateInput.value = localDate;
+/* ---------- persistência (opcional, falha em silêncio) ---------- */
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ reservation: state.reservation, reserved: [...state.reserved], plate: state.plate })); } catch (e) { /* ignora */ }
+}
+function load() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    if (!data) return;
+    state.reservation = data.reservation || null;
+    state.reserved = new Set(data.reserved || []);
+    state.plate = data.plate || '';
+  } catch (e) { /* ignora */ }
 }
 
-function showScreen(name) {
+/* ---------- utilidades ---------- */
+const pad = (n) => String(n).padStart(2, '0');
+const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const localISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const formatDate = (v) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${v}T12:00:00`));
+const formatTime = (v) => { const [h, m] = v.split(':').map(Number); return new Intl.DateTimeFormat('pt-BR', { hour: 'numeric', minute: '2-digit' }).format(new Date(2000, 0, 1, h, m)); };
+
+function setDefaults() {
+  const now = new Date();
+  const next = new Date(now.getTime());
+  next.setMinutes(now.getMinutes() < 30 ? 30 : 60, 0, 0); // próxima meia hora
+  dateInput.min = localISO(now);
+  dateInput.value = localISO(next);
+  timeInput.value = `${pad(next.getHours())}:${pad(next.getMinutes())}`;
+}
+
+function normalizePlate(value) {
+  const raw = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7);
+  return raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
+}
+const validPlate = (v) => /^[A-Z]{3}-[0-9][A-Z0-9][0-9]{2}$/.test(v);
+
+function announce(text) { srStatus.textContent = ''; window.setTimeout(() => { srStatus.textContent = text; }, 50); }
+
+/* ---------- navegação ---------- */
+function showScreen(name, { push = true, reset = false } = {}) {
   const target = document.querySelector(`[data-screen="${name}"]`);
   if (!target) return;
+  if (name !== 'auto') { clearTimeout(autoTimer); }
+  if (reset) state.history = ['request'];
+  if (push && state.history[state.history.length - 1] !== name) state.history.push(name);
+  state.screen = name;
 
-  screens.forEach((screen) => screen.classList.toggle('active', screen === target));
-  activeScreen = name;
-  navButtons.forEach((button) => {
-    button.classList.toggle('active', button.dataset.nav === name);
+  screens.forEach((s) => s.classList.toggle('active', s === target));
+  navButtons.forEach((b) => {
+    const on = b.dataset.nav === name;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  backButton.hidden = name === 'request';
+  target.scrollTo({ top: 0 });
+
+  const heading = target.querySelector('h1, h2');
+  if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
+  announce(TITLES[name] || '');
+  if (name === 'auto') startAuto();
+}
+
+function goBack() {
+  if (state.history.length > 1) state.history.pop();
+  showScreen(state.history[state.history.length - 1], { push: false });
+}
+
+/* ---------- mapa de vagas ---------- */
+function getCurrentFloor() {
+  return FLOOR_DATA[state.floor];
+}
+
+function getFullSpotId(spot) {
+  return `${state.floor}-${spot}`;
+}
+
+function formatSpotLabel(spotId) {
+  if (!spotId) return '—';
+  const [, spot] = spotId.split('-');
+  return `${spotId.split('-')[0]} - ${spot}`;
+}
+
+function spotStatus(id) {
+  const fullId = getFullSpotId(id);
+  if (state.reserved.has(fullId)) return 'reserved';
+  if (getCurrentFloor().occupied.has(id)) return 'occupied';
+  return 'available';
+}
+const STATUS_LABEL = { available: 'disponível', occupied: 'ocupada', reserved: 'reservada' };
+const MARK = { available: '✓', occupied: '✕', reserved: '●' };
+
+function updateFloorTabs() {
+  document.querySelectorAll('.floor-tab').forEach((tab) => {
+    const isActive = tab.dataset.floor === state.floor;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-pressed', String(isActive));
   });
 
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const floorLabel = document.getElementById('current-floor-label');
+  if (floorLabel) floorLabel.textContent = getCurrentFloor().label;
+  document.getElementById('map-grid').setAttribute('aria-label', `Mapa das vagas do ${getCurrentFloor().label}`);
 }
 
-function formatDate(value) {
-  const date = new Date(`${value}T12:00:00`);
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+function renderMap() {
+  updateFloorTabs();
+  mapGrid.innerHTML = '';
+  const currentFloor = getCurrentFloor();
+
+  currentFloor.spots.forEach((id) => {
+    const status = spotStatus(id);
+    const btn = document.createElement('button');
+    const fullId = getFullSpotId(id);
+    btn.type = 'button';
+    btn.className = `map-entry ${status}${state.selected === fullId ? ' selected' : ''}`;
+    btn.dataset.spot = fullId;
+    btn.setAttribute('aria-label', `Vaga ${id}, ${STATUS_LABEL[status]}`);
+    if (status === 'available') btn.setAttribute('aria-pressed', String(state.selected === fullId)); else btn.disabled = true;
+    btn.innerHTML = `<span>${id}</span><span class="mark" aria-hidden="true">${MARK[status]}</span>`;
+    mapGrid.appendChild(btn);
+  });
+
+  const hasSel = Boolean(state.selected && state.selected.startsWith(`${state.floor}-`));
+  selectionSummary.hidden = !hasSel;
+  selectedSpotEl.textContent = hasSel ? formatSpotLabel(state.selected) : '—';
+  confirmMapButton.disabled = !hasSel;
 }
 
-function formatTime(value) {
-  const [hours, minutes] = value.split(':').map(Number);
-  return new Intl.DateTimeFormat('pt-BR', { hour: 'numeric', minute: '2-digit' }).format(new Date(2000, 0, 1, hours, minutes));
-}
+mapGrid.addEventListener('click', (e) => {
+  const btn = e.target.closest('.map-entry.available');
+  if (!btn) return;
+  state.selected = btn.dataset.spot;
+  renderMap();
+  mapGrid.querySelector(`[data-spot="${state.selected}"]`).focus();
+});
 
-function formatCurrency(cents) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-    .format(cents / 100);
-}
+FLOOR_ORDER.forEach((floorKey) => {
+  const tab = document.querySelector(`.floor-tab[data-floor="${floorKey}"]`);
+  if (!tab) return;
+  tab.addEventListener('click', () => {
+    state.floor = floorKey;
+    state.selected = null;
+    renderMap();
+    document.getElementById('selection-summary').hidden = true;
+    confirmMapButton.disabled = true;
+    announce(`${FLOOR_DATA[floorKey].label} selecionado`);
+  });
+});
 
-function updatePriceBreakdown() {
-  const quote = paymentPricing.calculate(Number(parkingHours.value));
-  document.querySelector('#price-base').textContent = formatCurrency(quote.baseParkingCents);
-  document.querySelector('#price-service').textContent = formatCurrency(quote.serviceFeeCents);
-  document.querySelector('#price-additional-label').textContent =
-    `Horas adicionais (${quote.additionalHours} ${quote.additionalHours === 1 ? 'hora' : 'horas'})`;
-  document.querySelector('#price-additional').textContent = formatCurrency(quote.additionalHoursCents);
-  document.querySelector('#price-total').textContent = formatCurrency(quote.totalCents);
-  document.querySelector('#reservation-total').textContent = formatCurrency(quote.totalCents);
-  payNowButton.textContent = `Pagar ${formatCurrency(quote.totalCents)}`;
-}
-
-function updateSummary() {
-  document.querySelector('#summary-shopping').textContent = document.querySelector('#shopping').value;
-  document.querySelector('#summary-date').textContent = `${formatDate(dateInput.value)} · ${formatTime(timeInput.value)}`;
-  document.querySelector('#summary-spot').textContent = currentSpot || '—';
-  document.querySelector('#summary-plate').textContent = currentPlate || '—';
-}
-
-function plateValue() {
-  return plateInput.value.trim().toUpperCase();
-}
-
-function getNearestAvailableSpot() {
-  const allSpots = [...document.querySelectorAll('#vip-grid .vaga')];
-  const lastRow = Math.floor((allSpots.length - 1) / 4);
-
-  return allSpots.reduce((nearest, spot, index) => {
-    if (!spot.classList.contains('livre')) return nearest;
-    const row = Math.floor(index / 4);
-    const column = index % 4;
-    const distanceToEntrance = Math.abs(lastRow - row) + Math.abs(1.5 - column);
-    return !nearest || distanceToEntrance < nearest.distance
-      ? { spot, distance: distanceToEntrance }
-      : nearest;
-  }, null)?.spot || null;
-}
-
-function setSpotStatus(spot, status, plate = '') {
-  spot.classList.remove('livre', 'reservada', 'ocupada', 'selecionada');
-  spot.classList.add(status);
-  if (plate) spot.dataset.plate = plate;
-  else delete spot.dataset.plate;
-
-  const statusLabel = status === 'livre' ? 'livre' : status === 'reservada' ? 'reservada' : 'ocupada';
-  spot.setAttribute('aria-label', `${spot.dataset.spot}, ${statusLabel}`);
-}
-
-function reserveSpot(spot) {
-  if (!spot || !spot.classList.contains('livre')) return false;
-
-  if (!requestForm.checkValidity()) {
-    showScreen('request');
-    requestForm.reportValidity();
-    return false;
-  }
-
-  currentPlate = plateValue();
-  if (!currentPlate) {
-    plateInput.reportValidity();
-    return false;
-  }
-
-  setSpotStatus(spot, 'reservada', currentPlate);
-  currentSpot = spot.dataset.spot;
-  paidPayment = null;
-  document.querySelector('#reservation-status').textContent = 'Ativa';
-  document.querySelector('#reservation-payment-status').textContent = 'Pendente';
-  document.querySelector('#open-payment').disabled = false;
-  parkingHours.value = '1';
-  paymentResult.hidden = true;
-  payNowButton.disabled = false;
-  payNowButton.textContent = 'Pagar R$ 20,50';
-  updatePriceBreakdown();
-  selectedMapSpot = null;
-  selectionSummary.hidden = true;
-  confirmMapButton.disabled = true;
-  arrivalButton.disabled = false;
-  updateSummary();
-  showScreen('confirmation');
-  return true;
-}
-
-function clearCurrentReservation() {
-  if (!currentSpot) return;
-  const spot = [...document.querySelectorAll('.vaga')].find((entry) => entry.dataset.spot === currentSpot);
-  if (spot?.classList.contains('reservada') && spot.dataset.plate === currentPlate) {
-    setSpotStatus(spot, 'livre');
-  }
-  currentSpot = null;
-  currentPlate = '';
-}
-
-function beginAutomaticSelection() {
-  const availableSpot = getNearestAvailableSpot();
-  if (!availableSpot) {
-    window.alert('Não há vagas disponíveis no Bloco VIP no momento.');
-    return;
-  }
-
-  recommendedSpot = availableSpot;
-  autoSpotMessage.textContent = `A vaga mais próxima disponível é ${availableSpot.dataset.spot}.`;
+/* ---------- indicação automática ---------- */
+function startAuto() {
+  clearTimeout(autoTimer);
+  autoLoading.hidden = false;
+  autoFound.hidden = true;
   autoResult.hidden = true;
-  showScreen('auto');
-  window.clearTimeout(autoTimer);
   autoTimer = window.setTimeout(() => {
-    if (activeScreen === 'auto') autoResult.hidden = false;
-  }, 1200);
+    const free = getCurrentFloor().spots.find((id) => spotStatus(id) === 'available');
+    autoLoading.hidden = true;
+    autoFound.hidden = false;
+    if (free) {
+      state.selected = getFullSpotId(free);
+      $('#auto-spot').textContent = formatSpotLabel(state.selected);
+      autoNote.textContent = 'Melhor vaga disponível no momento (simulação do protótipo).';
+      autoResult.hidden = false;
+      announce(`Vaga indicada: ${formatSpotLabel(state.selected)}`);
+    } else {
+      $('#auto-spot').textContent = 'Sem vagas';
+      autoNote.textContent = 'Não há vagas disponíveis para este horário. Tente outro horário.';
+      announce('Sem vagas disponíveis');
+    }
+  }, 2200);
 }
 
-function simulateArrival() {
-  if (!currentSpot || !currentPlate) {
-    window.alert('Não há uma reserva ativa para simular a chegada.');
-    return;
-  }
-
-  const spot = [...document.querySelectorAll('.vaga')].find((entry) => entry.dataset.spot === currentSpot);
-  if (!spot || !spot.classList.contains('reservada') || spot.dataset.plate !== plateValue()) {
-    window.alert('A placa informada não corresponde à reserva desta vaga.');
-    return;
-  }
-
-  setSpotStatus(spot, 'ocupada');
-  document.querySelector('#reservation-status').textContent = 'Em uso';
-  arrivalButton.disabled = true;
-  window.alert(`Chegada confirmada para a placa ${currentPlate} na vaga ${currentSpot}.`);
+/* ---------- reserva ---------- */
+function reserve(spot) {
+  if (state.reservation) state.reserved.delete(state.reservation.spot); // uma reserva ativa por vez: a nova substitui a anterior
+  state.reservation = {
+    shopping: $('#shopping').value,
+    date: dateInput.value,
+    time: timeInput.value,
+    plate: state.plate,
+    spot,
+  };
+  state.reserved.add(spot);
+  state.selected = null;
+  save();
+  renderSummary();
+  renderMap();
+  state.history = ['request'];
+  showScreen('confirmation');
 }
 
-async function payForReservation() {
-  if (!currentSpot || !currentPlate) {
-    paymentResult.textContent = 'Faça uma reserva antes de realizar o pagamento.';
-    paymentResult.hidden = false;
-    return;
-  }
-  if (paidPayment) return;
-
-  payNowButton.disabled = true;
-  payNowButton.textContent = 'Processando pagamento...';
-  paymentResult.hidden = true;
-
-  try {
-    const response = await fetch('/api/payments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        hours: Number(parkingHours.value),
-        paymentMethod: document.querySelector('input[name="payment-method"]:checked').value,
-        plate: currentPlate,
-        spot: currentSpot,
-      }),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Não foi possível processar o pagamento.');
-
-    paidPayment = result;
-    document.querySelector('#reservation-status').textContent = 'Pago (demo)';
-    document.querySelector('#reservation-payment-status').textContent = 'Pago (demo)';
-    document.querySelector('#open-payment').disabled = true;
-    payNowButton.textContent = 'Pagamento simulado concluído';
-    paymentResult.textContent = `${result.message} Identificador: ${result.paymentId}`;
-    paymentResult.classList.remove('error');
-    paymentResult.hidden = false;
-  } catch (error) {
-    payNowButton.disabled = false;
-    payNowButton.textContent = `Tentar novamente — ${document.querySelector('#price-total').textContent}`;
-    paymentResult.textContent = `Pagamento não concluído: ${error.message}`;
-    paymentResult.classList.add('error');
-    paymentResult.hidden = false;
-  }
+function renderSummary() {
+  const r = state.reservation;
+  const nav = document.querySelector('[data-nav="confirmation"]');
+  nav.disabled = !r;
+  nav.setAttribute('aria-disabled', String(!r));
+  if (!r) return;
+  $('#summary-shopping').textContent = r.shopping;
+  $('#summary-date').textContent = `${formatDate(r.date)} · ${formatTime(r.time)}`;
+  $('#summary-spot').textContent = r.spot;
+  $('#summary-plate').textContent = r.plate;
+  $('#price-valet').textContent = brl(PRICE.valet);
+  $('#price-save').textContent = brl(PRICE.saving);
+  $('#price-pay').textContent = brl(PRICE.valet - PRICE.saving);
 }
 
-requestForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  if (!requestForm.reportValidity()) return;
-  plateInput.value = plateValue();
+/* ---------- eventos ---------- */
+plateInput.addEventListener('input', () => { plateInput.value = normalizePlate(plateInput.value); });
+
+requestForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  formError.hidden = true;
+  const errors = [];
+  if (!dateInput.value || !timeInput.value) errors.push('Informe a data e o horário de chegada.');
+  else if (new Date(`${dateInput.value}T${timeInput.value}`) < new Date()) errors.push('O horário de chegada precisa ser a partir de agora.');
+  if (!validPlate(plateInput.value)) errors.push('Informe a placa no formato ABC-1D23 ou ABC-1234.');
+  if (errors.length) { formError.textContent = errors[0]; formError.hidden = false; return; }
+  state.plate = plateInput.value;
+  state.formDone = true;
+  state.selected = null;
+  renderMap();
   showScreen('preference');
 });
 
-document.querySelectorAll('[data-action]').forEach((button) => {
-  button.addEventListener('click', () => {
-    if (button.dataset.action === 'auto') {
-      beginAutomaticSelection();
-      return;
-    }
-    showScreen(button.dataset.action);
-  });
-});
+document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => showScreen(b.dataset.action)));
+document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', goBack));
+backButton.addEventListener('click', goBack);
 
-document.querySelectorAll('[data-back]').forEach((button) => {
-  button.addEventListener('click', () => showScreen(button.dataset.back));
-});
+confirmMapButton.addEventListener('click', () => { if (state.selected) reserve(state.selected); });
+autoResult.addEventListener('click', () => { if (state.selected) reserve(state.selected); });
 
-document.querySelectorAll('#vip-grid .vaga').forEach((spot) => {
-  spot.addEventListener('click', () => {
-    if (!spot.classList.contains('livre')) return;
-    document.querySelectorAll('#vip-grid .vaga.selecionada').forEach((entry) => entry.classList.remove('selecionada'));
-    spot.classList.add('selecionada');
-    selectedMapSpot = spot;
-    selectedSpot.textContent = spot.dataset.spot;
-    selectionSummary.hidden = false;
-    confirmMapButton.disabled = false;
-  });
-});
-
-confirmMapButton.addEventListener('click', () => {
-  if (!selectedMapSpot) return;
-  reserveSpot(selectedMapSpot);
-});
-
-document.querySelector('#simulate-unauthorized').addEventListener('click', () => {
-  const reservedSpot = document.querySelector('#vip-grid .vaga.reservada');
-  const bufferSpot = document.querySelector('#buffer-grid .vaga.livre');
-  if (!reservedSpot) {
-    window.alert('Não há uma vaga VIP reservada para simular a ocupação indevida.');
-    return;
+navButtons.forEach((b) => b.addEventListener('click', () => {
+  const t = b.dataset.nav;
+  if (b.disabled) return;
+  if (t === 'request') showScreen('request', { reset: true });
+  if (t === 'map') {
+    if (!state.formDone) { showScreen('request', { reset: true }); formError.textContent = 'Preencha os dados da reserva para ver o mapa.'; formError.hidden = false; return; }
+    showScreen('map');
   }
-  if (!bufferSpot) {
-    window.alert('Não há vagas Buffer disponíveis. A reserva VIP foi mantida.');
-    return;
-  }
+  if (t === 'confirmation' && state.reservation) { state.history = ['request']; showScreen('confirmation'); }
+}));
 
-  const displacedPlate = reservedSpot.dataset.plate;
-  const displacedSpotCode = reservedSpot.dataset.spot;
-  setSpotStatus(reservedSpot, 'ocupada');
-  setSpotStatus(bufferSpot, 'reservada', displacedPlate);
-  if (currentPlate === displacedPlate && currentSpot === displacedSpotCode) {
-    currentSpot = bufferSpot.dataset.spot;
-    updateSummary();
-  }
-
-  window.alert('Infração detectada! Câmera registrou placa não autorizada. Taxa de Ocupação Premium aplicada ao tíquete do invasor.');
+$('#cancel-reservation').addEventListener('click', () => {
+  if (!state.reservation) return;
+  if (!window.confirm('Cancelar esta reserva? A vaga será liberada.')) return;
+  state.reserved.delete(state.reservation.spot);
+  state.reservation = null;
+  save();
+  renderSummary();
+  renderMap();
+  showScreen('request', { reset: true });
+  announce('Reserva cancelada');
 });
 
-arrivalButton.addEventListener('click', simulateArrival);
-document.querySelector('#open-payment').addEventListener('click', () => {
-  if (!currentSpot || !currentPlate) {
-    window.alert('Faça uma reserva antes de abrir o pagamento.');
-    return;
-  }
-  updatePriceBreakdown();
-  showScreen('payment');
-});
-parkingHours.addEventListener('change', updatePriceBreakdown);
-payNowButton.addEventListener('click', payForReservation);
-
-navButtons.forEach((button) => {
-  button.addEventListener('click', () => {
-    const target = button.dataset.nav;
-    if (target === 'confirmation' && (!currentSpot || !currentPlate)) {
-      window.alert('Faça uma reserva antes de consultar os detalhes.');
-      return;
-    }
-    showScreen(target);
-  });
+$('#new-reservation').addEventListener('click', () => {
+  setDefaults();
+  state.formDone = false;
+  state.selected = null;
+  formError.hidden = true;
+  renderMap();
+  showScreen('request', { reset: true });
 });
 
-autoResult.addEventListener('click', () => {
-  if (!recommendedSpot || !recommendedSpot.classList.contains('livre')) {
-    recommendedSpot = null;
-    window.alert('A vaga indicada não está mais disponível. Escolha outra opção.');
-    beginAutomaticSelection();
-    return;
-  }
-
-  if (!reserveSpot(recommendedSpot)) return;
-  recommendedSpot = null;
-});
-
-document.querySelector('#new-reservation').addEventListener('click', () => {
-  clearCurrentReservation();
-  requestForm.reset();
-  setDateMinimum();
-  selectedMapSpot = null;
-  document.querySelectorAll('#vip-grid .vaga.selecionada').forEach((spot) => spot.classList.remove('selecionada'));
-  selectionSummary.hidden = true;
-  confirmMapButton.disabled = true;
-  arrivalButton.disabled = true;
-  paidPayment = null;
-  document.querySelector('#open-payment').disabled = false;
-  parkingHours.value = '1';
-  paymentResult.hidden = true;
-  paymentResult.classList.remove('error');
-  updatePriceBreakdown();
-  recommendedSpot = null;
-  document.querySelector('#reservation-status').textContent = 'Ativa';
-  autoResult.hidden = true;
-  showScreen('request');
-});
-
-setDateMinimum();
-arrivalButton.disabled = true;
-updatePriceBreakdown();
+/* ---------- início ---------- */
+load();
+setDefaults();
+plateInput.value = state.plate;
+renderMap();
+renderSummary();
+if (state.reservation) showScreen('confirmation', { push: false });

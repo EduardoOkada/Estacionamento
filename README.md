@@ -4,35 +4,35 @@ Protótipo web mobile-first para a reserva antecipada de vagas de estacionamento
 
 ## Executar
 
-Com Node.js instalado, execute o servidor local:
+Abra `index.html` em um navegador moderno, ou rode um servidor local:
 
 ```bash
-node server.js
+python3 -m http.server 8000
 ```
 
-Depois, acesse `http://localhost:8000`. Para usar outra porta, defina `PORT` ao iniciar, por exemplo:
-
-```bash
-PORT=8080 node server.js
-```
+Depois acesse `http://localhost:8000`.
 
 ## Fluxo
 
-1. Informe o shopping, a data e o horário de chegada.
+1. Informe shopping, data, horário e placa do veículo.
 2. Escolha entre mapa interativo ou indicação automática.
-3. Selecione uma vaga disponível no mapa ou aceite a indicação automatizada.
-4. Confira a reserva e, se desejar, abra **Pagar pelo aplicativo** para estimar o tempo de permanência e selecionar Pix ou cartão.
-5. Confira o QR Code de acesso.
+3. Selecione uma vaga no mapa ou aceite a vaga indicada.
+4. Confira a reserva, o valor ilustrativo e o QR Code demonstrativo. É possível cancelar a reserva.
 
-## Recursos
+## Melhorias desta versão
 
-- Layout responsivo em primeiro lugar para celular.
-- Fluxo completo de reserva com navegação entre telas.
-- Mapa interativo de vagas disponíveis e ocupadas.
-- Simulação de carregamento da indicação automática.
-- Resumo final com QR Code de acesso.
-- Pagamento demonstrativo no aplicativo, com validação pelo servidor Node.js.
-- Cálculo em centavos: R$ 18,00 pela primeira hora, R$ 2,50 de taxa de serviço e R$ 8,00 por hora adicional (até 12 horas).
-- Regras de acessibilidade e redução de movimento.
+- **Indicação automática funcional:** o sistema escolhe a primeira vaga disponível, mostra a vaga indicada e só então libera "Aceitar e Prosseguir".
+- **Vaga reservada (azul):** após confirmar, a vaga fica reservada no mapa e não pode ser escolhida de novo, conforme os estados do projeto (verde livre, vermelho ocupada, azul reservada). Cada vaga mostra também ícone (✓, ✕, ●), sem depender só da cor.
+- **Placa do veículo** no formulário, com máscara (ABC-1D23 ou ABC-1234), base para a leitura de placa prevista no projeto.
+- **Validação:** não aceita horário passado nem placa inválida; o horário padrão é a próxima meia hora.
+- **Navegação coerente:** botão voltar funcional (oculto na tela inicial), "Reserva" só habilita com reserva ativa, "Mapa" exige o formulário preenchido. O botão de notificações, sem função, foi removido.
+- **Preço claro:** a confirmação mostra valet, valor pago e economia, com aviso de que são valores ilustrativos.
+- **Cancelar reserva**, que libera a vaga; a reserva ativa persiste ao recarregar a página (localStorage).
+- **Acessibilidade:** vagas são botões com `aria-label` e `aria-pressed`; foco move para o título de cada tela; anúncios via `aria-live`; contraste de cores e tamanhos mínimos de fonte revisados.
+- **Correções:** cartões que eram comprimidos quando a tela rolava; texto "instantly" para "instantaneamente"; QR Code identificado como demonstrativo.
 
-> O pagamento é somente uma demonstração: não há integração com adquirente ou cobrança real. O cartão não solicita nem armazena dados.
+## Limitações (protótipo)
+
+- A disponibilidade das vagas é fixa e não depende de shopping, data ou horário.
+- Não há sensores, leitura real de placa, pagamento ou login; o QR Code é ilustrativo.
+- Os valores de preço são de demonstração, não tarifas oficiais.
